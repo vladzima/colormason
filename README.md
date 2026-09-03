@@ -3,6 +3,8 @@
 An agent skill that turns **one brand color** into a complete, accessible
 color system — fully offline, deterministic, zero dependencies.
 
+![colormason — one brand color to a complete, accessible color system](https://cdn.arbatov.dev/jD8ZZ6NVhgfn32LZOhR4ZVbD4.png)
+
 Given a single hex, colormason generates:
 
 - **8 perceptually even OKLCH ramps** (50–950): primary, accent, accent-2,
