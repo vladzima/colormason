@@ -4,7 +4,9 @@
 Requires: python3, ImageMagick (`convert`) on PATH.
 
 Usage:
-  python3 examples/poster.py [--brand 3d7dff] [--out examples/colormason.png]
+  python3 examples/poster.py                          # full poster
+  python3 examples/poster.py --style minimal          # minimal poster
+  python3 examples/poster.py --brand 0f766e --style minimal
 """
 
 import argparse
@@ -79,7 +81,49 @@ RAMP_ORDER = ["primary", "accent", "accent-2", "neutral",
 STEP_LABELS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
 
 
-def build_svg(d):
+def build_svg_minimal(d):
+    """Minimal poster - the poster itself is set in the generated system:
+    background, text, link and ramp colors are all real token values."""
+    el = []
+    el.append('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">' % (W, H))
+    el.append(rect(0, 0, W, H, tok(d, "bg-canvas", "light")))
+    tp = tok(d, "text-primary", "light")
+    ts = tok(d, "text-secondary", "light")
+    tt = tok(d, "text-tertiary", "light")
+
+    # header
+    el.append(text(120, 140, "colormason", 44, tp, bold=True))
+    el.append(text(122, 180, "one brand color " + chr(0x2192) +
+                   " an accessible color system", 20, ts))
+    el.append(text(1800 - tw("#" + d["brand"].lstrip("#"), 17, mono=True), 118,
+                   d["brand"], 17, ts, mono=True))
+    el.append(rect(1800 - 44, 134, 44, 44, d["brand"], rx=10))
+
+    # hero: the primary ramp, one full-width bar
+    el.append(text(122, 428, "primary", 14, tt, mono=True))
+    x0, bar_w, bar_y, bar_h, gap = 120, 1680, 452, 240, 3
+    sw = (bar_w - gap * 10) / 11.0
+    for i, step in enumerate(STEP_LABELS):
+        el.append(rect(x0 + i * (sw + gap), bar_y, sw, bar_h,
+                       ramp(d, "primary", step), rx=8))
+    for i in (0, 5, 10):
+        cx = x0 + i * (sw + gap) + sw / 2
+        el.append(ctext(cx, bar_y + bar_h + 34, str(STEP_LABELS[i]), 13,
+                        tt, mono=True))
+
+    # footer
+    el.append(text(120, 952, "8 ramps  " + chr(0xb7) + "  45 semantic tokens  " +
+                   chr(0xb7) + "  light + dark  " + chr(0xb7) +
+                   "  every text pair WCAG AA", 15, ts, mono=True))
+    install = "$ npx skills add vladzima/colormason"
+    el.append(text(1800 - tw(install, 17, mono=True, bold=True), 952, install,
+                   17, tok(d, "text-link", "light"), bold=True, mono=True))
+
+    el.append("</svg>")
+    return "\n".join(el)
+
+
+def build_svg_full(d):
     el = []
     el.append('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">' % (W, H))
     el.append(rect(0, 0, W, H, BG))
@@ -183,18 +227,23 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--brand", default="3d7dff")
     p.add_argument("--scheme", default="complementary")
-    p.add_argument("--out", default=os.path.join(HERE, "colormason.png"))
+    p.add_argument("--style", default="full", choices=["full", "minimal"])
+    p.add_argument("--out", default=None)
     args = p.parse_args()
 
     d = palette.generate(brand=args.brand, scheme=args.scheme, scope="full",
                          target="AA")
-    svg = build_svg(d)
-    svg_path = args.out + ".svg"
+    builder = build_svg_minimal if args.style == "minimal" else build_svg_full
+    out = args.out or os.path.join(
+        HERE, "colormason.png" if args.style == "full" else
+        "colormason-minimal.png")
+    svg = builder(d)
+    svg_path = out + ".svg"
     with open(svg_path, "w") as f:
         f.write(svg)
-    subprocess.run(["convert", svg_path, args.out], check=True)
+    subprocess.run(["convert", svg_path, out], check=True)
     os.remove(svg_path)
-    print("wrote %s (%s, brand %s)" % (args.out, args.brand, d["brand"]))
+    print("wrote %s (%s, brand %s)" % (out, args.style, d["brand"]))
 
 
 if __name__ == "__main__":
