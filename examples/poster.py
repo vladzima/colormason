@@ -81,6 +81,99 @@ RAMP_ORDER = ["primary", "accent", "accent-2", "neutral",
 STEP_LABELS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
 
 
+def build_svg_spectrum(d):
+    """Middle-ground poster: light editorial layout - 8 ramp ribbons plus one
+    band of real UI elements, all set in the generated light-mode tokens."""
+    el = []
+    el.append('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">' % (W, H))
+    el.append(rect(0, 0, W, H, tok(d, "bg-canvas", "light")))
+    tp = tok(d, "text-primary", "light")
+    ts = tok(d, "text-secondary", "light")
+    tt = tok(d, "text-tertiary", "light")
+    border = tok(d, "border-default", "light")
+
+    # header
+    el.append(text(120, 132, "colormason", 46, tp, bold=True))
+    el.append(text(122, 172, "one brand color " + chr(0x2192) +
+                   " an accessible color system", 20, ts))
+    el.append(text(1740 - tw(d["brand"], 16, mono=True), 124, d["brand"],
+                   16, ts, mono=True))
+    el.append(rect(1756, 94, 44, 44, d["brand"], rx=10))
+
+    # ------------------------------------------------ 8 ramp ribbons
+    el.append(text(120, 246, "OKLCH RAMPS", 14, tt, bold=True))
+    for lbl, cx in (("50", 222), ("500", 1010), ("950", 1798)):
+        el.append(ctext(cx, 246, lbl, 12, tt, mono=True))
+    x0, strip_w, y0, strip_h, gap, vgap = 220, 1580, 262, 26, 3, 8
+    sw = (strip_w - gap * 10) / 11.0
+    for r, name in enumerate(RAMP_ORDER):
+        y = y0 + r * (strip_h + vgap)
+        el.append(text(210 - tw(name, 14, mono=True), y + 18, name, 14, ts, mono=True))
+        for i, step in enumerate(STEP_LABELS):
+            el.append(rect(x0 + i * (sw + gap), y, sw, strip_h,
+                           ramp(d, name, step), rx=3))
+
+    # ------------------------------------------------ tokens in use
+    el.append(text(120, 600, "SEMANTIC TOKENS IN USE", 14, tt, bold=True))
+
+    # row 1: buttons + badges
+    el.append(rect(120, 624, 184, 48, tok(d, "bg-brand", "light"), rx=10))
+    el.append(ctext(212, 653, "Deploy now", 16, tok(d, "text-on-brand", "light"),
+                    bold=True))
+    el.append(rect(324, 624, 112, 48, "none", rx=10, stroke=border, sw="1.5"))
+    el.append(ctext(380, 653, "Cancel", 16, tp))
+    for i, (ramp_name, lbl) in enumerate((("success", "Saved"),
+                                          ("error", "Failed"),
+                                          ("info", "Info"))):
+        bx = 466 + i * 116
+        el.append(rect(bx, 631, 100, 34, tok(d, "bg-" + ramp_name, "light"), rx=17))
+        el.append(ctext(bx + 50, 653, lbl, 13,
+                        tok(d, "text-on-" + ramp_name, "light"), bold=True))
+
+    # row 2: banner + inputs (normal and focused)
+    banner_bg = tok(d, "bg-error-subtle", "light")
+    fg = tok(d, "text-error", "light")
+    if palette.contrast(fg, banner_bg) < 4.5:
+        cands = [s for s in palette.STEPS
+                 if palette.contrast(ramp(d, "error", s), banner_bg) >= 4.5]
+        if cands:
+            fg = ramp(d, "error", cands[-1])
+    el.append(rect(120, 700, 384, 54, banner_bg, rx=10))
+    el.append(text(140, 733, "Quota is running low", 15, fg))
+
+    el.append(rect(536, 700, 300, 48, tok(d, "bg-surface", "light"), rx=10,
+                   stroke=border, sw="1.5"))
+    el.append(text(556, 729, "Search services" + chr(0x2026), 14, tt))
+    el.append(rect(868, 700, 300, 48, tok(d, "bg-surface", "light"), rx=10,
+                   stroke=tok(d, "ring-focus", "light"), sw="2.5"))
+    el.append(text(888, 729, "Search services", 14, tp))
+    el.append(rect(888 + tw("Search services", 14) + 6, 716, 2, 20, tp))
+
+    # right column: text hierarchy
+    el.append(text(1480, 640, "Body copy", 20, tp, bold=True))
+    el.append(text(1480, 672, "Helper text for context", 15, ts))
+    el.append(text(1480, 698, "Timestamps " + chr(0xb7) + " captions", 13, tt))
+    el.append(text(1480, 740, "Docs & runbook " + chr(0x2192), 15,
+                   tok(d, "text-link", "light"), bold=True))
+
+    # footer
+    el.append(text(120, 950, "8 ramps  " + chr(0xb7) + "  45 semantic tokens  " +
+                   chr(0xb7) + "  light + dark  " + chr(0xb7) +
+                   "  zero dependencies  " + chr(0xb7) + "  offline",
+                   15, ts, mono=True))
+    el.append(text(120, 984, "WCAG AA " + chr(0x2014) + "  " + "   ".join(
+        "%s %s" % (n, ratio(d, n)) for n in
+        ("text-primary", "text-on-brand", "text-on-error")), 13, tt, mono=True))
+    install = "$ npx skills add vladzima/colormason"
+    el.append(text(1800 - tw(install, 17, mono=True, bold=True), 950, install,
+                   17, tok(d, "text-link", "light"), bold=True, mono=True))
+    el.append(text(1800 - tw("github.com/vladzima/colormason", 13, mono=True),
+                   984, "github.com/vladzima/colormason", 13, tt, mono=True))
+
+    el.append("</svg>")
+    return "\n".join(el)
+
+
 def build_svg_minimal(d):
     """Minimal poster - the poster itself is set in the generated system:
     background, text, link and ramp colors are all real token values."""
@@ -227,16 +320,20 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--brand", default="3d7dff")
     p.add_argument("--scheme", default="complementary")
-    p.add_argument("--style", default="full", choices=["full", "minimal"])
+    p.add_argument("--style", default="spectrum",
+                   choices=["spectrum", "full", "minimal"])
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
     d = palette.generate(brand=args.brand, scheme=args.scheme, scope="full",
                          target="AA")
-    builder = build_svg_minimal if args.style == "minimal" else build_svg_full
+    builder = {"spectrum": build_svg_spectrum,
+               "full": build_svg_full,
+               "minimal": build_svg_minimal}[args.style]
     out = args.out or os.path.join(
-        HERE, "colormason.png" if args.style == "full" else
-        "colormason-minimal.png")
+        HERE, {"spectrum": "colormason-spectrum.png",
+               "full": "colormason.png",
+               "minimal": "colormason-minimal.png"}[args.style])
     svg = builder(d)
     svg_path = out + ".svg"
     with open(svg_path, "w") as f:
