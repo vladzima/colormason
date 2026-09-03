@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile
+        run: python3 -m py_compile colormason/scripts/palette.py
+
+      - name: Smoke test all brands, schemes, formats, targets
+        run: |
+          set -e
+          for b in 3d7dff 0f766e e11d48 f59e0b 881337 111111; do
+            for f in json css tailwind markdown; do
+              python3 colormason/scripts/palette.py --brand "$b" --format "$f" > /dev/null
+            done
+          done
+          for s in complementary analogous triadic split monochromatic; do
+            python3 colormason/scripts/palette.py --brand 0f766e --scheme "$s" --format json > /dev/null
+          done
+          python3 colormason/scripts/palette.py --brand 3d7dff --scope basic --format json > /dev/null
+          python3 colormason/scripts/palette.py --brand 3d7dff --target AAA --format json > /dev/null
+          python3 colormason/scripts/palette.py --brand 3d7dff --exclude accent-2,info --format json > /dev/null
+          python3 colormason/scripts/palette.py --brand 3d7dff --accent ff00ff --accent-2 00ffcc --format json > /dev/null
+
+      - name: Verify JSON structure and WCAG pairs
+        run: |
+          python3 colormason/scripts/palette.py --brand 3d7dff --format json 2>/dev/null | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d['ramps']['primary']['500']
+          assert len(d['tokens']) >= 40
+          for t in d['tokens']:
+              c = t.get('contrast')
+              if c:
+                  for mode in ('light', 'dark'):
+                      assert c[mode]['ratio'] >= 4.5, (t['name'], mode, c[mode]['ratio'])
+          print('json + AA pairs ok')
+          "
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          python3 - <<'EOF'
+          import re
+          text = open("colormason/SKILL.md").read()
+          m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+          assert m, "frontmatter block missing"
+          fm = m.group(1)
+          name = re.search(r"^name:\s*(\S+)", fm, re.M).group(1)
+          assert name == "colormason"
+          assert re.fullmatch(r"[a-z][a-z0-9-]*", name) and "--" not in name
+          desc = re.search(r"^description:\s*(.+)$", fm, re.M).group(1)
+          assert 0 < len(desc) <= 1024
+          print("frontmatter ok")
+          EOF
